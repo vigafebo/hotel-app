@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breakfast Checker | ibis Curitiba Batel</title>
+<style>
+:root{color-scheme:light;--ink:#211c28;--muted:#625a6a;--accent:#8a1743;--border:#e8dfe5;--surface:#fff;--bg:#f8f5f7;font:16px/1.5 system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg)}header{background:#32152a;color:white;padding:40px 24px 56px}header div,main{max-width:1080px;margin:auto}header p,h1{margin:0}.eyebrow{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}header .eyebrow{color:#ffc2d7}h1{font-size:clamp(2rem,5vw,3rem);line-height:1.12;margin:8px 0}header p:last-child{color:#f0dce6}main{padding:0 20px 48px;margin-top:-24px}.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 8px 28px #32152a09;margin-bottom:16px}h2{font-size:1.15rem;margin:0 0 4px}.muted,small{color:var(--muted)}p{margin:0 0 12px}.steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.tag{color:var(--accent);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}form,.actions{display:flex;align-items:end;gap:8px;flex-wrap:wrap}label{display:block;font-size:.87rem;font-weight:700}form label:first-child{flex:1;min-width:110px}input,select,button{font:inherit}input,select{display:block;width:100%;padding:8px;border:1px solid #a99ba5;border-radius:8px;background:white;color:var(--ink)}input[type=file]{border:1px dashed #a99ba5;padding:12px;margin:6px 0 12px;background:#fbf8fa}button{background:var(--accent);color:white;border:0;border-radius:8px;padding:9px 13px;cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:default}button.subtle{background:#f4ebf0;color:#6e183c;padding:5px 9px;font-size:.83rem}:focus-visible{outline:3px solid #bf4977;outline-offset:3px}.rules{margin:12px 0 0;padding:0;list-style:none}.rules li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border)}.rules li span{flex:1}.error{color:#992034;font-weight:700}.notice{margin:10px 0 0}.summary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.badge{display:inline-block;border-radius:7px;padding:3px 8px;background:#f1eaf0;font-size:.83rem;font-weight:750}.yes{background:#e4f4eb;color:#195339}.no{background:#edf0f4;color:#384456}.review{background:#fff0cf;color:#684007}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:.9rem}th,td{padding:9px;border-bottom:1px solid var(--border);vertical-align:top}th{background:#f8f1f5}td small{display:block}footer{font-size:.83rem;color:var(--muted)}[hidden]{display:none!important}@media(max-width:740px){.steps{grid-template-columns:1fr;gap:0}header{padding-top:28px}.card{padding:16px}}
+</style>
+</head>
+<body>
+<header><div><p class="eyebrow">ibis Curitiba Batel · Operação de manhã</p><h1>Breakfast Checker</h1><p>Confira o café da manhã por hóspede a partir do relatório do Opera.</p></div></header>
+<main>
+<section class="card" aria-labelledby="import-title">
+<p class="tag">01 · Relatório</p><h2 id="import-title">Importar GIH01128</h2>
+<p class="muted">Selecione o PDF Rate Check Report by Room. O arquivo é lido neste navegador.</p>
+<label for="report">Arquivo PDF</label><input id="report" type="file" accept=".pdf,application/pdf">
+<div class="actions"><button id="generate" disabled>Gerar PDF</button><button id="clear" class="subtle" hidden>Limpar relatório</button></div>
+<p id="message" role="status" class="notice" aria-live="polite">Aguardando um relatório.</p>
+</section>
+<div class="steps">
+<section class="card" aria-labelledby="rates-title">
+<p class="tag">02 · Regras</p><h2 id="rates-title">Rate Codes</h2><p class="muted">A tarifa é a referência principal.</p>
+<form data-kind="rates"><label>Código da tarifa<input name="code" required maxlength="40" placeholder="Ex. BAR" autocomplete="off"></label><label>Classificação<select name="status"><option value="yes">Com café</option><option value="no">Sem café</option></select></label><button>Salvar</button></form>
+<ul class="rules" id="rates"></ul>
+</section>
+<section class="card" aria-labelledby="packages-title">
+<p class="tag">03 · Conferência</p><h2 id="packages-title">Packages</h2><p class="muted">Marque se cada pacote inclui café.</p>
+<form data-kind="packages"><label>Código do pacote<input name="code" required maxlength="40" placeholder="Ex. BREAKFAST" autocomplete="off"></label><label>Classificação<select name="status"><option value="yes">Com café</option><option value="no">Sem café</option></select></label><button>Salvar</button></form>
+<ul class="rules" id="packages"></ul>
+</section>
+</div>
+<p id="rules-message" role="status" aria-live="polite"></p>
+<section class="card" id="results" hidden aria-labelledby="results-title">
+<h2 id="results-title">Prévia da conferência</h2><p id="report-date" class="muted"></p><div id="summary" class="summary"></div>
+<div class="table-wrap" tabindex="0" aria-label="Tabela de hóspedes"><table><thead><tr><th>Quarto</th><th>Hóspede</th><th>Prs.</th><th>Rate Code</th><th>Packages</th><th>Conferência</th></tr></thead><tbody id="guests"></tbody></table></div>
+</section>
+<footer>Os cadastros ficam neste navegador e neste dispositivo. Os hóspedes aparecem apenas na sessão atual e no PDF baixado. A coluna Prs. reproduz a contagem do Opera, inclusive quando consta zero.</footer>
+</main>
+<script type="module">
+const pdfBase = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/';
+const storageKey = 'ibis-batel-breakfast-rules-v1';
+const normalize = value => value.trim().toUpperCase();
+const labels = {yes:'Com café', no:'Sem café', review:'Verificar'};
+const byId = id => document.getElementById(id);
+let rules = {rates:{}, packages:{}};
+let report = null;
+let importVersion = 0;
+let pdfLibrary;
+let exportLibrary;
+
+function parseReport(pages) {
+  const guests = [];
+  let date = '';
+  for (const items of pages) {
+    const lines = [];
+    for (const item of items.filter(item => item.str?.trim()).sort((a,b) => b.transform[5] - a.transform[5])) {
+      const [x,y] = item.transform.slice(4);
+      let line = lines.at(-1);
+      if (!line || Math.abs(line.y - y) > 2) {
+        line = {y, items:[]};
+        lines.push(line);
+      }
+      line.items.push({x, text:item.str.trim()});
+    }
+    for (const line of lines) line.items.sort((a,b) => a.x - b.x);
+    const column = (line, from, to) => line.items.filter(item => item.x >= from && item.x < to).map(item => item.text).join(' ');
+    const text = line => column(line, -Infinity, Infinity);
+    const title = lines.find(line => /^GIH01128\s+Rate Check Report by Room$/i.test(text(line)));
+    const header = lines.find(line => /^Room\s+Name\s+Prs\.\s+Adl\..*Rate\s+Code.*Arrival.*Departure/i.test(text(line)));
+    const filter = lines.find(line => /^Filter\s+Date\s+\d/i.test(text(line)));
+    if (!title || !header || !filter || !(title.y > header.y && header.y > filter.y)) {
+      throw new Error('Arquivo incompatível. Selecione o PDF GIH01128 Rate Check Report by Room exportado pelo Opera.');
+    }
+    const pageDate = text(filter).match(/\b\d{2}[-/]\d{2}[-/]\d{2,4}\b/)?.[0];
+    if (!pageDate || (date && date !== pageDate)) throw new Error('O relatório contém datas inconsistentes.');
+    date = pageDate;
+    let guest = guests.at(-1);
+    let readingName = false;
+    for (const line of lines.filter(line => line.y < header.y && line.y > filter.y)) {
+      const room = column(line, 0, 34);
+      const name = column(line, 34, 140).replace(/^\*\s*/, '');
+      const people = column(line, 140, 165);
+      const packageLine = /^Packages\b/i.test(column(line, 65, 140));
+      if (packageLine) {
+        const codes = column(line, 140, 260).split(/[,\s]+/).map(normalize).filter(Boolean);
+        if (!guest || !codes.length) throw new Error('Há uma linha de Packages que não pôde ser associada com segurança.');
+        guest.packages = [...new Set([...guest.packages, ...codes])];
+        readingName = false;
+      } else if (/^[\w-]+$/.test(room) && name && /^\d+$/.test(people)) {
+        guest = {room, name, people, rate:normalize(column(line, 260, 319)), packages:[]};
+        guests.push(guest);
+        readingName = true;
+      } else if (readingName && !room && name && !column(line,140,Infinity)) {
+        guest.name += ' ' + name;
+      } else if (room && /^\w[\w-]*$/.test(room) && /\d/.test(room)) {
+        throw new Error('Uma linha de hóspede tem formato inesperado. Confira o arquivo exportado pelo Opera.');
+      }
+    }
+  }
+  if (!guests.length) throw new Error('O GIH01128 foi reconhecido, mas não contém linhas de hóspedes.');
+  return {date, guests};
+}
+
+function classify(guest) {
+  const rate = Object.hasOwn(rules.rates, guest.rate) ? rules.rates[guest.rate] : 'review';
+  const packages = guest.packages.map(code => ({code, status:Object.hasOwn(rules.packages, code) ? rules.packages[code] : 'review'}));
+  const hasBreakfastPackage = packages.some(pkg => pkg.status === 'yes');
+  const conflict = rate === 'no' && hasBreakfastPackage;
+  const pendingPackage = packages.some(pkg => pkg.status === 'review');
+  const notes = [];
+  if (rate === 'review') notes.push(guest.rate ? 'Rate Code não cadastrado' : 'Rate Code ausente');
+  if (conflict) notes.push('Tarifa sem café + pacote com café');
+  if (pendingPackage) notes.push('Package não cadastrado');
+  return {rate, packages, status:notes.length ? 'review' : rate, note:notes.join(' · ')};
+}
+
+function showRulesMessage(message, error = false) {
+  const element = byId('rules-message');
+  element.textContent = message;
+  element.classList.toggle('error', error);
+}
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  for (const kind of Object.keys(rules)) {
+    rules[kind] = Object.fromEntries(Object.entries(saved?.[kind] || {}).filter(([,value]) => value === 'yes' || value === 'no'));
+  }
+} catch {
+  showRulesMessage('Não foi possível carregar os cadastros salvos neste navegador.', true);
+}
+
+function saveRules(kind, next, message) {
+  const updated = {...rules, [kind]:next};
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+  } catch {
+    showRulesMessage('O navegador bloqueou o armazenamento. A alteração não foi salva.', true);
+    return false;
+  }
+  rules = updated;
+  renderRules();
+  renderReport();
+  showRulesMessage(message);
+  return true;
+}
+
+function renderRules() {
+  for (const kind of Object.keys(rules)) {
+    const list = byId(kind);
+    const form = document.querySelector('form[data-kind="' + kind + '"]');
+    const entries = Object.entries(rules[kind]).sort(([a],[b]) => a.localeCompare(b));
+    list.replaceChildren();
+    if (!entries.length) {
+      const item = document.createElement('li');
+      item.textContent = 'Nenhum código cadastrado.';
+      list.append(item);
+    }
+    for (const [code,status] of entries) {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = code + ' · ' + labels[status];
+      const edit = document.createElement('button');
+      edit.className = 'subtle';
+      edit.textContent = 'Editar';
+      edit.setAttribute('aria-label','Editar ' + code);
+      edit.onclick = () => {
+        form.elements.code.value = code;
+        form.elements.status.value = status;
+        form.elements.code.focus();
+      };
+      const remove = document.createElement('button');
+      remove.className = 'subtle';
+      remove.textContent = 'Remover';
+      remove.setAttribute('aria-label','Remover ' + code);
+      remove.onclick = () => {
+        const next = {...rules[kind]};
+        delete next[code];
+        saveRules(kind, next, code + ' removido.');
+      };
+      item.append(label,edit,remove);
+      list.append(item);
+    }
+  }
+}
+
+for (const form of document.querySelectorAll('form[data-kind]')) {
+  form.onsubmit = event => {
+    event.preventDefault();
+    const kind = form.dataset.kind;
+    const code = normalize(form.elements.code.value);
+    if (!/^[A-Z0-9][A-Z0-9_./+-]*$/.test(code)) {
+      showRulesMessage('Cadastre um código por vez, sem espaços ou vírgulas.', true);
+      return;
+    }
+    if (saveRules(kind, {...rules[kind],[code]:form.elements.status.value}, code + ' salvo neste navegador.')) {
+      form.reset();
+      form.elements.code.focus();
+    }
+  };
+}
+
+function packageText(result, separator = ', ') {
+  return result.packages.map(pkg => pkg.code + ' (' + labels[pkg.status] + ')').join(separator) || 'Sem packages';
+}
+
+function renderReport() {
+  byId('results').hidden = !report;
+  byId('generate').disabled = !report;
+  byId('guests').replaceChildren();
+  byId('summary').replaceChildren();
+  if (!report) {
+    byId('report-date').textContent = '';
+    return;
+  }
+  byId('report-date').textContent = 'Data do relatório: ' + report.date;
+  const counts = {yes:0,no:0,review:0};
+  const rows = document.createDocumentFragment();
+  for (const guest of report.guests) {
+    const result = classify(guest);
+    counts[result.status]++;
+    const row = document.createElement('tr');
+    for (const value of [guest.room, guest.name, guest.people, (guest.rate || 'Ausente') + ' · ' + labels[result.rate], packageText(result)]) {
+      row.insertCell().textContent = value;
+    }
+    const cell = row.insertCell();
+    const badge = document.createElement('span');
+    badge.className = 'badge ' + result.status;
+    badge.textContent = labels[result.status];
+    cell.append(badge);
+    if (result.note) {
+      const note = document.createElement('small');
+      note.textContent = result.note;
+      cell.append(note);
+    }
+    rows.append(row);
+  }
+  byId('guests').append(rows);
+  for (const status of Object.keys(counts)) {
+    const badge = document.createElement('span');
+    badge.className = 'badge ' + status;
+    badge.textContent = labels[status] + ' · ' + counts[status] + ' linhas';
+    byId('summary').append(badge);
+  }
+}
+
+function setMessage(message, error = false) {
+  byId('message').textContent = message;
+  byId('message').classList.toggle('error', error);
+}
+byId('clear').onclick = () => {
+  importVersion++;
+  byId('report').value = '';
+  report = null;
+  byId('clear').hidden = true;
+  renderReport();
+  setMessage('Aguardando um relatório.');
+};
+
+byId('report').onchange = async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const version = ++importVersion;
+  report = null;
+  renderReport();
+  byId('clear').hidden = false;
+  setMessage('Lendo o relatório…');
+  let loading;
+  try {
+    if (await file.slice(0,5).text() !== '%PDF-') throw new Error('Selecione um arquivo PDF do relatório GIH01128.');
+    try {
+      pdfLibrary ||= import(pdfBase + 'pdf.mjs');
+      const pdfjs = await pdfLibrary;
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfBase + 'pdf.worker.mjs';
+      loading = pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer()), isEvalSupported:false, disableFontFace:true});
+    } catch {
+      pdfLibrary = null;
+      throw new Error('A biblioteca de leitura não carregou. Confira a conexão e tente novamente.');
+    }
+    const pdf = await loading.promise;
+    const pages = [];
+    for (let page = 1; page <= pdf.numPages; page++) {
+      if (version !== importVersion) return;
+      const content = await (await pdf.getPage(page)).getTextContent();
+      pages.push(content.items);
+    }
+    const parsed = parseReport(pages);
+    if (version !== importVersion) return;
+    report = parsed;
+    renderReport();
+    setMessage('GIH01128 reconhecido. ' + report.guests.length + ' linhas de hóspedes.');
+  } catch (error) {
+    if (version === importVersion) setMessage(error instanceof Error && error.constructor === Error ? error.message : 'Não foi possível ler o PDF. Use o arquivo original exportado pelo Opera.', true);
+  } finally {
+    if (loading) await loading.destroy().catch(() => {});
+  }
+};
+
+function createReportPDF(JsPDF, data) {
+  const pdf = new JsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+  const columns = [12, 30, 93, 105, 149, 211, 285];
+  const colors = {yes:[228,244,235], no:[237,240,244], review:[255,240,207]};
+  const entries = data.guests.map(guest => ({guest, result:classify(guest)}));
+  const counts = {yes:0,no:0,review:0};
+  entries.forEach(({result}) => counts[result.status]++);
+  let y;
+  function header() {
+    pdf.setFillColor(50,21,42);
+    pdf.rect(0,0,297,34,'F');
+    pdf.setTextColor(255);
+    pdf.setFont('helvetica','bold').setFontSize(19);
+    pdf.text('Breakfast Checker',12,14);
+    pdf.setFont('helvetica','normal').setFontSize(10);
+    pdf.text('ibis Curitiba Batel | GIH01128 | Data do relatório: ' + data.date,12,23);
+    pdf.text('Com café: ' + counts.yes + '   |   Sem café: ' + counts.no + '   |   Verificar: ' + counts.review + '   (linhas)',285,23,{align:'right'});
+    pdf.setFillColor(245,236,241);
+    pdf.rect(12,39,273,8,'F');
+    pdf.setTextColor(33,28,40).setFont('helvetica','bold').setFontSize(9);
+    ['Quarto','Hóspede','Prs.','Rate Code','Packages','Conferência'].forEach((label,i) => pdf.text(label,columns[i]+2,44));
+    y = 47;
+  }
+  header();
+  entries.forEach(({guest,result}, index) => {
+    const cells = [guest.room, guest.name, guest.people, (guest.rate || 'Ausente') + '\n' + labels[result.rate], packageText(result,'\n'), [labels[result.status],result.note].filter(Boolean).join('\n')];
+    pdf.setFont('helvetica','normal').setFontSize(9);
+    const lines = cells.map((value,i) => pdf.splitTextToSize(value,columns[i+1]-columns[i]-4));
+    const height = Math.max(9,4+Math.max(...lines.map(cell => cell.length))*3.7);
+    if (y+height > 188) {
+      pdf.addPage();
+      header();
+    }
+    pdf.setFillColor(...(index%2 ? [250,247,249] : [255,255,255]));
+    pdf.rect(12,y,273,height,'F');
+    pdf.setFillColor(...colors[result.status]);
+    pdf.rect(columns[5],y,columns[6]-columns[5],height,'F');
+    pdf.setDrawColor(232,223,229).setLineWidth(.2).line(12,y+height,285,y+height);
+    pdf.setTextColor(33,28,40).setFont('helvetica','normal').setFontSize(9);
+    lines.forEach((cell,i) => pdf.text(cell,columns[i]+2,y+5,{lineHeightFactor:1.16}));
+    y += height;
+  });
+  const total = pdf.getNumberOfPages();
+  for (let page = 1; page <= total; page++) {
+    pdf.setPage(page).setFont('helvetica','normal').setTextColor(98,90,106).setFontSize(8);
+    pdf.text('Uso interno | Prs. conforme o Opera | Confira manualmente as linhas marcadas como Verificar.',12,201);
+    pdf.text(page + ' / ' + total,285,201,{align:'right'});
+  }
+  return pdf;
+}
+
+byId('generate').onclick = async () => {
+  const data = report;
+  if (!data) return;
+  byId('generate').disabled = true;
+  try {
+    exportLibrary ||= new Promise((resolve,reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/jspdf@3.0.3/dist/jspdf.umd.min.js';
+      script.onload = () => window.jspdf?.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error());
+      script.onerror = () => { script.remove(); reject(new Error()); };
+      document.head.append(script);
+    });
+    const JsPDF = await exportLibrary;
+    if (data !== report) return;
+    createReportPDF(JsPDF, data).save('Breakfast-Checker-' + data.date.replaceAll('/','-') + '.pdf');
+    setMessage('PDF gerado. Confira o download do navegador.');
+  } catch {
+    exportLibrary = null;
+    if (data === report) setMessage('Não foi possível gerar o PDF. Confira a conexão e tente novamente.', true);
+  } finally {
+    if (data === report) byId('generate').disabled = false;
+  }
+};
+renderRules();
+</script>
+</body>
+</html>
