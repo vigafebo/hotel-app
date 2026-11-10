@@ -19,6 +19,7 @@
 <div class="actions"><button id="generate" disabled>Gerar PDF</button><button id="clear" class="subtle" hidden>Limpar relatório</button></div>
 <p id="message" role="status" class="notice" aria-live="polite">Aguardando um relatório.</p>
 </section>
+<p id="rules-message" role="status" aria-live="polite"></p>
 <div class="steps">
 <section class="card" aria-labelledby="rates-title">
 <p class="tag">02 · Regras</p><h2 id="rates-title">Rate Codes</h2><p class="muted">A tarifa é a referência principal.</p>
@@ -31,7 +32,13 @@
 <ul class="rules" id="packages"></ul>
 </section>
 </div>
-<p id="rules-message" role="status" aria-live="polite"></p>
+<section class="card" aria-labelledby="sharing-title">
+<p class="tag">04 · Compartilhamento</p><h2 id="sharing-title">Compartilhar cadastros</h2>
+<p class="muted">Exporte os Rate Codes e Packages para compartilhar com a equipe. A importação substitui os cadastros deste navegador após confirmação.</p>
+<div class="actions"><button id="export-rules" type="button">Exportar dados</button><button id="import-rules" type="button">Importar dados</button></div>
+<input id="rules-file" type="file" accept=".json,application/json" hidden aria-label="Arquivo de cadastros">
+<p id="sharing-message" class="notice" role="status" aria-live="polite"></p>
+</section>
 <section class="card" id="results" hidden aria-labelledby="results-title">
 <h2 id="results-title">Prévia da conferência</h2><p id="report-date" class="muted"></p><div id="summary" class="summary"></div>
 <div class="table-wrap" tabindex="0" aria-label="Tabela de hóspedes"><table><thead><tr><th>Quarto</th><th>Hóspede</th><th>Prs.</th><th>Rate Code</th><th>Packages</th><th>Conferência</th></tr></thead><tbody id="guests"></tbody></table></div>
@@ -42,6 +49,8 @@
 const pdfBase = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/';
 const storageKey = 'ibis-batel-breakfast-rules-v1';
 const normalize = value => value.trim().toUpperCase();
+const validCode = code => /^[A-Z0-9][A-Z0-9_./+-]{0,39}$/.test(code);
+const rulesFormat = 'ibis-batel-breakfast-rules';
 const labels = {yes:'Com café', no:'Sem café', review:'Verificar'};
 const byId = id => document.getElementById(id);
 let rules = {rates:{}, packages:{}};
@@ -132,20 +141,83 @@ try {
   showRulesMessage('Não foi possível carregar os cadastros salvos neste navegador.', true);
 }
 
-function saveRules(kind, next, message) {
-  const updated = {...rules, [kind]:next};
+function persistRules(updated) {
   try {
     localStorage.setItem(storageKey, JSON.stringify(updated));
   } catch {
-    showRulesMessage('O navegador bloqueou o armazenamento. A alteração não foi salva.', true);
     return false;
   }
   rules = updated;
   renderRules();
   renderReport();
-  showRulesMessage(message);
   return true;
 }
+
+function saveRules(kind, next, message) {
+  const saved = persistRules({...rules, [kind]:next});
+  showRulesMessage(saved ? message : 'O navegador bloqueou o armazenamento. A alteração não foi salva.', !saved);
+  return saved;
+}
+
+function parseRulesFile(contents) {
+  const data = JSON.parse(contents);
+  if (data?.format !== rulesFormat || data.version !== 1) throw new Error('Formato incompatível');
+  const imported = {};
+  for (const kind of ['rates', 'packages']) {
+    const entries = data.rules?.[kind];
+    if (!entries || typeof entries !== 'object' || Array.isArray(entries)) throw new Error('Cadastro inválido');
+    const pairs = Object.entries(entries);
+    if (pairs.some(([code, status]) => !validCode(code) || !['yes','no'].includes(status))) throw new Error('Código ou classificação inválida');
+    imported[kind] = Object.fromEntries(pairs);
+  }
+  return imported;
+}
+
+function showSharingMessage(message, error = false) {
+  const element = byId('sharing-message');
+  element.textContent = message;
+  element.classList.toggle('error', error);
+}
+
+byId('export-rules').onclick = () => {
+  const exportedAt = new Date();
+  const contents = JSON.stringify({format:rulesFormat, version:1, exportedAt:exportedAt.toISOString(), rules}, null, 2);
+  const url = URL.createObjectURL(new Blob([contents], {type:'application/json'}));
+  const link = document.createElement('a');
+  const date = exportedAt.toISOString().slice(0,10);
+  link.href = url;
+  link.download = 'Breakfast-Checker-cadastros-' + date + '.json';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showSharingMessage('Cadastros exportados. Compartilhe o arquivo JSON com a equipe.');
+};
+
+byId('import-rules').onclick = () => byId('rules-file').click();
+byId('rules-file').onchange = async event => {
+  const input = event.currentTarget;
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  let imported;
+  try {
+    imported = parseRulesFile(await file.text());
+  } catch {
+    showSharingMessage('Arquivo inválido. Selecione um JSON exportado pelo Breakfast Checker.', true);
+    return;
+  }
+  const counts = Object.keys(imported.rates).length + ' Rate Codes e ' + Object.keys(imported.packages).length + ' Packages';
+  if (!window.confirm('Importar ' + counts + ' e substituir os cadastros deste navegador?')) {
+    showSharingMessage('Importação cancelada.');
+    return;
+  }
+  if (!persistRules(imported)) {
+    showSharingMessage('O navegador bloqueou o armazenamento. Os cadastros anteriores foram preservados.', true);
+    return;
+  }
+  showSharingMessage('Importação concluída. Cadastros salvos neste navegador: ' + counts + '.');
+};
 
 function renderRules() {
   for (const kind of Object.keys(rules)) {
@@ -191,7 +263,7 @@ for (const form of document.querySelectorAll('form[data-kind]')) {
     event.preventDefault();
     const kind = form.dataset.kind;
     const code = normalize(form.elements.code.value);
-    if (!/^[A-Z0-9][A-Z0-9_./+-]*$/.test(code)) {
+    if (!validCode(code)) {
       showRulesMessage('Cadastre um código por vez, sem espaços ou vírgulas.', true);
       return;
     }
