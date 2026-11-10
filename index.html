@@ -8,7 +8,8 @@
 :root{color-scheme:light;--ink:#251f20;--muted:#62595b;--accent:#e20026;--border:#eadfe1;--surface:#fff;--bg:#f8f5f5;font:16px/1.5 system-ui,sans-serif}
 *{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg)}header{background:#e20026;color:white;padding:40px 24px 56px}header div,main{max-width:1080px;margin:auto}header p,h1{margin:0}.eyebrow{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}header .eyebrow{color:#fff}h1{font-size:clamp(2rem,5vw,3rem);line-height:1.12;margin:8px 0}header p:last-child{color:#fff}main{padding:0 20px 48px;margin-top:-24px}.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 8px 28px #2c151809;margin-bottom:16px}h2{font-size:1.15rem;margin:0 0 4px}.muted,small{color:var(--muted)}p{margin:0 0 12px}.steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.tag{color:var(--accent);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}form,.actions{display:flex;align-items:end;gap:8px;flex-wrap:wrap}label{display:block;font-size:.87rem;font-weight:700}form label:first-child{flex:1;min-width:110px}input,select,button{font:inherit}input,select{display:block;width:100%;padding:8px;border:1px solid #a99b9d;border-radius:8px;background:white;color:var(--ink)}input[type=file]{border:1px dashed #a99b9d;padding:12px;margin:6px 0 12px;background:#fcf8f8}button{background:var(--accent);color:white;border:0;border-radius:8px;padding:9px 13px;cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:default}button.subtle{background:#fcecef;color:#a0001b;padding:5px 9px;font-size:.83rem}:focus-visible{outline:3px solid #b8001f;outline-offset:3px}.rules{margin:12px 0 0;padding:0;list-style:none}.rules li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border)}.rules li span{flex:1}.error{color:#992034;font-weight:700}.notice{margin:10px 0 0}.summary{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.badge{display:inline-block;border-radius:7px;padding:3px 8px;background:#f6eeee;font-size:.83rem;font-weight:750}.yes{background:#e4f4eb;color:#195339}.no{background:#ffdce1;color:#9e0020}.review{background:#fff0cf;color:#684007}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:.9rem}th,td{padding:9px;border-bottom:1px solid var(--border);vertical-align:top}th{background:#fff0f2}td small{display:block}footer{font-size:.83rem;color:var(--muted)}[hidden]{display:none!important}@media(max-width:740px){.steps{grid-template-columns:1fr;gap:0}header{padding-top:28px}.card{padding:16px}}
 .rule-search{margin-top:14px}.rules{--row-height:3rem;max-height:calc(5 * var(--row-height));overflow-y:auto;padding-right:4px;scrollbar-color:#bd9da4 #f8f0f2}.rules li{height:var(--row-height);flex-wrap:nowrap}.rules li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rules li button{flex-shrink:0}
-.backup-dialog{width:min(440px,calc(100% - 32px));max-width:none;margin:auto;color:var(--ink)}.backup-dialog::backdrop{background:#251f2066}.backup-dialog .actions{justify-content:flex-end;margin-top:20px}
+.app-dialog{width:min(440px,calc(100% - 32px));max-width:none;margin:auto;color:var(--ink)}.app-dialog::backdrop{background:#251f2066}.app-dialog .actions{justify-content:flex-end;margin-top:20px}
+.import-counts{margin:12px 0;padding:9px 12px;border-radius:8px;background:#fcecef;color:#a0001b;font-weight:700}
 </style>
 </head>
 <body>
@@ -51,13 +52,23 @@
 </section>
 <footer>Os cadastros ficam neste navegador e neste dispositivo. Os hóspedes aparecem apenas na sessão atual e no PDF baixado. A coluna Prs. reproduz a contagem do Opera, inclusive quando consta zero.</footer>
 </main>
-<dialog id="backup-reminder" class="card backup-dialog" aria-labelledby="backup-title" aria-describedby="backup-description">
+<dialog id="backup-reminder" class="card app-dialog" aria-labelledby="backup-title" aria-describedby="backup-description">
 <p class="tag">Lembrete de backup</p>
 <h2 id="backup-title">Mantenha seu backup atualizado</h2>
 <p id="backup-description" class="muted">Se você alterou algum Rate Code ou Package, baixe uma cópia atualizada dos cadastros.</p>
 <form method="dialog" class="actions">
 <button class="subtle" value="later" autofocus>Agora não</button>
 <button id="backup-export" value="export">Baixar backup</button>
+</form>
+</dialog>
+<dialog id="import-confirmation" class="card app-dialog" aria-labelledby="confirm-import-title" aria-describedby="import-counts import-description">
+<p class="tag">Compartilhar cadastros</p>
+<h2 id="confirm-import-title">Confirmar importação</h2>
+<p id="import-counts" class="import-counts"></p>
+<p id="import-description" class="muted">Os cadastros do arquivo substituirão os cadastros atuais deste navegador.</p>
+<form method="dialog" class="actions">
+<button class="subtle" value="cancel" autofocus>Cancelar</button>
+<button value="import">Importar cadastros</button>
 </form>
 </dialog>
 <script type="module">
@@ -215,15 +226,28 @@ byId('rules-file').onchange = async event => {
   const file = input.files[0];
   input.value = '';
   if (!file) return;
+  const importButton = byId('import-rules');
+  importButton.disabled = true;
   let imported;
   try {
     imported = parseRulesFile(await file.text());
   } catch {
+    importButton.disabled = false;
     showSharingMessage('Arquivo inválido. Selecione um JSON exportado pelo Breakfast Checker.', true);
     return;
   }
-  const counts = Object.keys(imported.rates).length + ' Rate Codes e ' + Object.keys(imported.packages).length + ' Packages';
-  if (!window.confirm('Importar ' + counts + ' e substituir os cadastros deste navegador?')) {
+  const rateCount = Object.keys(imported.rates).length;
+  const packageCount = Object.keys(imported.packages).length;
+  const counts = rateCount + (rateCount === 1 ? ' Rate Code' : ' Rate Codes') +
+    ' e ' + packageCount + (packageCount === 1 ? ' Package' : ' Packages');
+  const dialog = byId('import-confirmation');
+  byId('import-counts').textContent = counts;
+  dialog.returnValue = 'cancel';
+  dialog.showModal();
+  await new Promise(resolve => dialog.addEventListener('close', resolve, {once:true}));
+  importButton.disabled = false;
+  importButton.focus();
+  if (dialog.returnValue !== 'import') {
     showSharingMessage('Importação cancelada.');
     return;
   }
