@@ -372,52 +372,62 @@ byId('report').onchange = async event => {
 
 function createReportPDF(JsPDF, data) {
   const pdf = new JsPDF({orientation:'portrait', unit:'mm', format:'a4'});
-  const columns = [8, 22, 66, 76, 104, 145, 202];
+  const columns = [8, 23, 75, 85, 114, 163, 202];
   const tableWidth = columns.at(-1) - columns[0];
-  const colors = {yes:[228,244,235], no:[255,220,225], review:[255,240,207]};
+  const palette = {
+    yes:{fill:[228,244,235], ink:[25,83,57]},
+    no:{fill:[255,220,225], ink:[158,0,32]},
+    review:{fill:[255,240,207], ink:[104,64,7]}
+  };
   const entries = data.guests.map(guest => ({guest, result:classify(guest)}));
   const counts = {yes:0,no:0,review:0};
   entries.forEach(({result}) => counts[result.status]++);
   let y;
-  function header() {
-    pdf.setFillColor(226,0,38);
-    pdf.rect(8,8,1.2,11,'F');
-    pdf.setTextColor(226,0,38).setFont('helvetica','bold').setFontSize(15);
-    pdf.text('Breakfast Checker',12,12.5);
-    pdf.setTextColor(37,31,32).setFont('helvetica','normal').setFontSize(8);
-    pdf.text('ibis Curitiba Batel | GIH01128 | ' + data.date,12,18);
-    pdf.text('Com café: ' + counts.yes + '  |  Sem café: ' + counts.no + '  |  Verificar: ' + counts.review + '  (linhas)',202,18,{align:'right'});
-    pdf.setFillColor(255,240,242);
-    pdf.rect(columns[0],22,tableWidth,6,'F');
-    pdf.setFont('helvetica','bold').setFontSize(8.5);
-    ['Quarto','Hóspede','Prs.','Rate Code','Packages','Conferência'].forEach((label,i) => pdf.text(label,columns[i]+1.5,26));
-    y = 28;
+
+  function pill(status, label, x, top, width) {
+    const {fill, ink} = palette[status];
+    pdf.setFillColor(...fill).roundedRect(x,top,width,5,2.5,2.5,'F');
+    pdf.setTextColor(...ink).setFont('helvetica','bold').setFontSize(8);
+    pdf.text(label,x+width/2,top+3.35,{align:'center'});
   }
+
+  function header() {
+    pdf.setFillColor(252,242,244).roundedRect(columns[0],7,tableWidth,14,3,3,'F');
+    pdf.setTextColor(193,0,34).setFont('helvetica','bold').setFontSize(15);
+    pdf.text('Breakfast Checker',12,13.3);
+    pdf.setTextColor(98,89,91).setFont('helvetica','normal').setFontSize(8);
+    pdf.text('ibis Curitiba Batel  |  ' + data.date,12,18);
+    Object.keys(counts).forEach((status,i) => {
+      pill(status,labels[status] + '  ' + counts[status],111+i*29,11.5,27);
+    });
+    pdf.setFillColor(57,42,45).roundedRect(columns[0],24,tableWidth,7,2,2,'F');
+    pdf.setTextColor(255).setFont('helvetica','bold').setFontSize(8.5);
+    ['Quarto','Hóspede','Prs.','Rate Code','Packages','Conferência'].forEach((label,i) => pdf.text(label,columns[i]+2,28.4));
+    y = 32;
+  }
+
   header();
   entries.forEach(({guest,result}, index) => {
-    const cells = [guest.room, guest.name, guest.people, (guest.rate || 'Ausente') + '\n' + labels[result.rate], packageText(result,'\n'), [labels[result.status],result.note].filter(Boolean).join('\n')];
+    const cells = [guest.room, guest.name, guest.people, (guest.rate || 'Ausente') + '\n' + labels[result.rate], packageText(result,'\n')];
     pdf.setFont('helvetica','normal').setFontSize(9);
-    const lines = cells.map((value,i) => pdf.splitTextToSize(value,columns[i+1]-columns[i]-3));
-    const height = Math.max(6,2.5+Math.max(...lines.map(cell => cell.length))*3.7);
+    const lines = cells.map((value,i) => pdf.splitTextToSize(value,columns[i+1]-columns[i]-4));
+    const height = Math.max(7,3+Math.max(...lines.map(cell => cell.length))*3.7);
     if (y+height > 283) {
       pdf.addPage();
       header();
     }
-    pdf.setFillColor(...(index%2 ? [250,247,247] : [255,255,255]));
-    pdf.rect(columns[0],y,tableWidth,height,'F');
-    pdf.setFillColor(...colors[result.status]);
-    pdf.rect(columns[5],y,columns[6]-columns[5],height,'F');
-    pdf.setDrawColor(234,223,225).setLineWidth(.2).line(columns[0],y+height,columns.at(-1),y+height);
+    pdf.setFillColor(...(index%2 ? [249,245,246] : [255,255,255]));
+    pdf.roundedRect(columns[0],y,tableWidth,height,1.4,1.4,'F');
     pdf.setTextColor(37,31,32).setFont('helvetica','normal').setFontSize(9);
-    lines.forEach((cell,i) => {
-      if (i === 5 && result.status === 'no') pdf.setTextColor(158,0,32).setFont('helvetica','bold');
-      pdf.text(cell,columns[i]+1.5,y+3.8,{lineHeightFactor:1.16});
-    });
+    lines.forEach((cell,i) => pdf.text(cell,columns[i]+2,y+3.8,{lineHeightFactor:1.16}));
+    pill(result.status,labels[result.status],columns[5]+2,y+1.3,22);
     y += height;
   });
   const total = pdf.getNumberOfPages();
   for (let page = 1; page <= total; page++) {
-    pdf.setPage(page).setFont('helvetica','normal').setTextColor(98,89,91).setFontSize(8);
+    pdf.setPage(page);
+    pdf.setDrawColor(234,223,225).setLineWidth(.2).line(columns[0],286,columns.at(-1),286);
+    pdf.setFont('helvetica','normal').setTextColor(98,89,91).setFontSize(8);
     pdf.text('Uso interno | Prs. conforme o Opera | Confira manualmente as linhas marcadas como Verificar.',8,290);
     pdf.text(page + ' / ' + total,202,290,{align:'right'});
   }
