@@ -26,7 +26,7 @@
 <ul class="rules" id="rates"></ul>
 </section>
 <section class="card" aria-labelledby="packages-title">
-<p class="tag">03 · Conferência</p><h2 id="packages-title">Packages</h2><p class="muted">Marque se cada pacote inclui café.</p>
+<p class="tag">03 · Conferência</p><h2 id="packages-title">Packages</h2><p class="muted">Marque se cada pacote inclui café. O TTUR (taxa de turismo) é ignorado automaticamente.</p>
 <form data-kind="packages"><label>Código do pacote<input name="code" required maxlength="40" placeholder="Ex. BREAKFAST" autocomplete="off"></label><label>Classificação<select name="status"><option value="yes">Com café</option><option value="no">Sem café</option></select></label><button>Salvar</button></form>
 <ul class="rules" id="packages"></ul>
 </section>
@@ -105,7 +105,9 @@ function parseReport(pages) {
 
 function classify(guest) {
   const rate = Object.hasOwn(rules.rates, guest.rate) ? rules.rates[guest.rate] : 'review';
-  const packages = guest.packages.map(code => ({code, status:Object.hasOwn(rules.packages, code) ? rules.packages[code] : 'review'}));
+  const packages = guest.packages
+    .filter(code => normalize(code) !== 'TTUR')
+    .map(code => ({code, status:Object.hasOwn(rules.packages, code) ? rules.packages[code] : 'review'}));
   const hasBreakfastPackage = packages.some(pkg => pkg.status === 'yes');
   const conflict = rate === 'no' && hasBreakfastPackage;
   const pendingPackage = packages.some(pkg => pkg.status === 'review');
@@ -201,7 +203,7 @@ for (const form of document.querySelectorAll('form[data-kind]')) {
 }
 
 function packageText(result, separator = ', ') {
-  return result.packages.map(pkg => pkg.code + ' (' + labels[pkg.status] + ')').join(separator) || 'Sem packages';
+  return result.packages.map(pkg => pkg.code + ' (' + labels[pkg.status] + ')').join(separator) || 'Sem packages para conferir';
 }
 
 function renderReport() {
